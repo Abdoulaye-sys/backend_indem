@@ -1,39 +1,51 @@
 const express = require("express");
-const cors = require("cors");
+const router = express.Router();
+const { getUserByEmail } = require("../models/userModel");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const indemRoutes = require("./routes/indemRoutes");
-const paiementRoutes = require("./routes/paiementRoutes");
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-const pool = require("./config/db");
-const authMiddleware = require("./middleware/authMiddleware"); // ✅ Ajout du middleware
+// Vérifier si JWT_SECRET est défini
+if (!process.env.JWT_SECRET) {
+    console.error("❌ Erreur : La clé JWT_SECRET n'est pas définie !");
+    process.exit(1);
+}
 
-// ✅ Vérifier la connexion à PostgreSQL
-pool.connect()
-    .then(() => console.log("✅ Connecté à la base de données PostgreSQL"))
-    .catch(err => console.error("❌ Erreur de connexion à PostgreSQL :", err));
+// Route de connexion
+router.post("/login", async (req, res) => {
+    const { email, password } = req.body;
 
-// ✅ Middleware
-app.use(express.json()); 
-app.use(cors());
+    try {
+        // Vérifier si l'utilisateur existe
+        const user = await getUserByEmail(email);
+        if (!user) {
+            return res.status(400).json({ message: "Utilisateur non trouvé" });
+        }
 
-// ✅ Routes
-const userRoutes = require("./routes/userRoutes");
-const authRoutes = require("./routes/authRoutes");
-app.use("/api/indemnisations", indemRoutes);
-app.use("/api/paiements", paiementRoutes);
+        // Vérifier le mot de passe
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: "Mot de passe incorrect" });
+        }
 
-app.use("/api/users", userRoutes);
-app.use("/api/auth", authRoutes);
+        // ✅ Générer un token JWT
+        const token = jwt.sign(
+            { id: user.id, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "1h" } // Durée de validité
+        );
 
+        console.log("🔑 Token généré :", token);
 
-// ✅ Route de test
-app.get("/", (req, res) => {
-    res.send("API is running...");
+        res.json({ 
+            token, 
+            user: { id: user.id, name: user.name, email: user.email } 
+        });
+
+    } catch (error) {
+        console.error("❌ Erreur serveur :", error.message);
+        res.status(500).json({ message: "Erreur serveur" });
+    }
 });
 
-// ✅ Démarrage du serveur
-app.listen(PORT, () => {
-    console.log(`🚀 Serveur en ligne sur http://localhost:${PORT}`);
-});
+module.exports = router;
