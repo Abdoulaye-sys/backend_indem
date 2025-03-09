@@ -22,11 +22,10 @@ pool.connect()
 // ✅ Middleware
 app.use(express.json());  // Parse les requêtes JSON
 app.use(cors({
-    origin: 'https://mellow-horse-a612b1.netlify.app/',  // Remplace par l'URL de ton frontend
+    origin: 'https://mellow-horse-a612b1.netlify.app',  // Remplace par l'URL de ton frontend (sans slash à la fin)
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
-  }));
-  
+}));
 
 // ✅ Routes
 app.use("/api/indemnisations", indemRoutes);
